@@ -1,0 +1,226 @@
+= Edpuzzle Script - Eggpuzzle =
+
+== Description ==
+
+The purpose for Eggpuzzle is automatically (kind of) answering the questions base on the video, fixed the problem that AI's answer is far off from the video.
+
+1. Download the video
+
+2. Processing audio from the video
+
+3. Processing text from the audio
+
+4. Analyzing questions
+
+5. AI's job
+
+idk if its working or not, just 4 fun.
+
+== Download Video ==
+
+  def download_video(youtube_url, download_path):
+    yt = YouTube(youtube_url)
+    stream = yt.streams.filter(only_audio=True).first()
+    video_path = stream.download(output_path=download_path, filename='audio.mp4')
+    print(f"Downloaded video to {video_path}")
+    return video_path
+
+1. Download video
+
+2. Filter audio
+
+== Get Audio ==
+
+  def extract_audio(video_path, audio_path):
+    video = mp.VideoFileClip(video_path)
+    video.audio.write_audiofile(audio_path)
+    print(f"Extracted audio to {audio_path}")
+
+1. Get audio by using `moviepy`
+
+2. `VideoFileClip` create a video file
+
+3. `video.audio.write_audiofile(audio_path)` take the audio and download through the path
+
+== Identify Audio ==
+
+  def transcribe_audio(audio_path):
+    recognizer = sr.Recognizer()
+    audio_file = sr.AudioFile(audio_path)
+    with audio_file as source:
+        audio = recognizer.record(source)
+    text = recognizer.recognize_google(audio)
+    print(f"Transcribed audio: {text[:100]}...") 
+    return text
+
+1.i forgot, i guess its basically about creating recognizer then read the data of the audio? not quite sure
+
+2. recognizing audio, then return the text
+
+== Process Text ==
+
+  def process_subtitles(subtitle_path):
+    subtitles = pysrt.open(subtitle_path)
+    text = ' '.join([sub.text for sub in subtitles])
+    print(f"Processed subtitles: {text[:100]}...") 
+    return text
+
+1. processing text file
+
+2. whatever
+
+== Analyze Question ==
+
+Due to those questions are not part of the video, so need to detected them at a specific timestamp.
+
+  import os
+  import speech_recognition as sr
+
+  def transcribe_audio(audio_path, start_time=None, end_time=None):
+    recognizer = sr.Recognizer()
+    audio_file = sr.AudioFile(audio_path)
+    with audio_file as source:
+        if start_time is not None and end_time is not None:
+            audio = recognizer.record(source, offset=start_time, duration=end_time - start_time)
+        else:
+            audio = recognizer.record(source)
+    text = recognizer.recognize_google(audio)
+    return text
+  def analyze_questions(audio_path, time_stamps):
+    questions = []
+    for start_time, end_time in time_stamps:
+        question_text = transcribe_audio(audio_path, start_time, end_time)
+        questions.append(question_text)
+    return questions
+  if __name__ == "__main__":
+    audio_path = 'path_to_your_audio_file.wav'  
+    time_stamps = [
+        (start_time, end_time),  
+        (start_time, end_time),  
+    ]
+    detected_questions = analyze_questions(audio_path, time_stamps)
+    print("Detected questions:")
+    for i, question in enumerate(detected_questions, start=1):
+        print(f"Question {i}: {question}")
+
+== Answering Questions (AI) ==
+
+  import openai
+
+  openai.api_key = 'OPENAI_API_KEY'
+
+  def ask_openai(questions):
+    responses = []
+    for question in questions:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=question,
+            max_tokens=150
+        )
+        answer = response.choices[0].text.strip()
+        responses.append({'question': question, 'answer': answer})
+        print(f"Q: {question}\nA: {answer}\n")
+    return responses
+
+  if __name__ == "__main__":
+    questions = [
+        "What is the capital of France?",
+        "Who invented the telephone?",
+        # Add more questions as needed
+    ]
+
+    responses = ask_openai(questions)
+    for response in responses:
+        print(f"Question: {response['question']}\nAnswer: {response['answer']}\n")
+
+== Combination ==
+
+  import os
+  from pytube import YouTube
+  import moviepy.editor as mp
+  import speech_recognition as sr
+  import pysrt
+  import openai
+
+  openai.api_key = 'OPENAI_API_KEY'
+
+  def download_video(youtube_url, download_path):
+    yt = YouTube(youtube_url)
+    stream = yt.streams.filter(only_audio=True).first()
+    video_path = stream.download(output_path=download_path, filename='audio.mp4')
+    print(f"Downloaded video to {video_path}")
+    return video_path
+
+  def extract_audio(video_path, audio_path):
+    video = mp.VideoFileClip(video_path)
+    video.audio.write_audiofile(audio_path)
+    print(f"Extracted audio to {audio_path}")
+
+  def transcribe_audio(audio_path, start_time=None, end_time=None):
+    recognizer = sr.Recognizer()
+    audio_file = sr.AudioFile(audio_path)
+    with audio_file as source:
+        if start_time is not None and end_time is not None:
+            audio = recognizer.record(source, offset=start_time, duration=end_time - start_time)
+        else:
+            audio = recognizer.record(source)
+    text = recognizer.recognize_google(audio)
+    print(f"Transcribed audio: {text[:100]}...")  # Print first 100 characters for brevity
+    return text
+
+  def process_subtitles(subtitle_path):
+    subtitles = pysrt.open(subtitle_path)
+    text = ' '.join([sub.text for sub in subtitles])
+    print(f"Processed subtitles: {text[:100]}...")  # Print first 100 characters for brevity
+    return text
+
+  def analyze_questions(audio_path, time_stamps):
+    questions = []
+    for start_time, end_time in time_stamps:
+        question_text = transcribe_audio(audio_path, start_time, end_time)
+        questions.append(question_text)
+    return questions
+
+  def ask_openai(questions):
+    responses = []
+    for question in questions:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=question,
+            max_tokens=150
+        )
+        answer = response.choices[0].text.strip()
+        responses.append({'question': question, 'answer': answer})
+        print(f"Q: {question}\nA: {answer}\n")
+    return responses
+
+  if __name__ == "__main__":
+    youtube_url = 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID'
+    download_path = './downloads'
+    if not os.path.exists(download_path):
+        os.makedirs(download_path)
+    video_path = os.path.join(download_path, 'audio.mp4')
+    audio_path = os.path.join(download_path, 'audio.wav')
+    subtitle_path = os.path.join(download_path, 'subtitles.srt')
+
+    time_stamps = [
+        (starttime, endtime),  
+        (starttime, endtime), 
+
+    video_path = download_video(youtube_url, download_path)
+
+    extract_audio(video_path, audio_path)
+
+    if os.path.exists(subtitle_path):
+        subtitle_text = process_subtitles(subtitle_path)
+    else:
+        subtitle_text = ''
+
+    questions_from_audio = analyze_questions(audio_path, time_stamps)
+    
+    if questions_from_audio:
+        responses = ask_openai(questions_from_audio)
+        for response in responses:
+            print(f"Question: {response['question']}\nAnswer: {response['answer']}\n")
+    else:
+        print("No questions detected.")
